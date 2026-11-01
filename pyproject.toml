@@ -1,15 +1,17 @@
 [project]
 name = "data-analysis-agent"
 version = "0.1.0"
-description = "多 Agent + MCP 的数据分析助手"
+description = "数据分析助手：LangGraph + MCP 的自然语言取数系统"
 requires-python = ">=3.12"
 dependencies = [
     "langchain>=1.4",
     "langgraph>=1.2",
+    "langchain-openai>=1.7",
     "langchain-ollama>=1.1",
     "langchain-mcp-adapters>=0.3",
     "mcp>=1.30",
-    "sqlalchemy>=2.1",
+    "fastapi>=0.160",
+    "uvicorn>=0.30",
     "pandas>=3.0",
     "matplotlib>=3.11",
     "pydantic-settings>=2.16",
@@ -18,10 +20,13 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=9.0"]
 
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["data_agent", "mcp_server"]
+
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-q -p no:cacheprovider"
