@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# 数据与产物（可再生产）
+data/*.db
+data/*.sqlite
+outputs/
+charts/
+.mplconfig/
+
+# 测试缓存
+.pytest_cache/

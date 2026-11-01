@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>数据分析助手</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #0f1115; color: #e6e8ee;
+    font: 15px/1.7 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  header {
+    padding: 14px 24px; border-bottom: 1px solid #232733;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header span { color: #6b7280; font-size: 12px; }
+  #list { max-width: 900px; margin: 0 auto; padding: 24px 24px 140px; }
+  .row { margin-bottom: 18px; }
+  .ask { color: #7dd3fc; font-weight: 500; }
+  .step {
+    font-family: ui-monospace, Consolas, monospace; font-size: 12.5px;
+    color: #9aa4b2; background: #161922; border-left: 2px solid #2b3140;
+    padding: 6px 10px; margin: 6px 0; border-radius: 0 6px 6px 0;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .step b { color: #c8d0dc; font-weight: 600; }
+  .answer { background: #151821; border: 1px solid #232733; border-radius: 10px; padding: 16px 20px; }
+  .answer h2, .answer h3 { font-size: 15px; margin: 14px 0 8px; color: #c8d0dc; }
+  .answer table { border-collapse: collapse; margin: 10px 0; font-size: 13.5px; }
+  .answer th, .answer td { border: 1px solid #2b3140; padding: 6px 10px; }
+  .answer th { background: #1b1f2a; }
+  .answer img { max-width: 100%; border-radius: 8px; margin: 10px 0; }
+  .answer code { background: #232733; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .answer pre { background: #0b0d12; padding: 12px; border-radius: 8px; overflow-x: auto; }
+  .err { color: #f87171; font-size: 13px; }
+  footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #0f1115; border-top: 1px solid #232733; padding: 14px 24px;
+  }
+  .box { max-width: 900px; margin: 0 auto; display: flex; gap: 10px; }
+  input {
+    flex: 1; background: #161922; border: 1px solid #2b3140; color: #e6e8ee;
+    border-radius: 8px; padding: 11px 14px; font-size: 14px; outline: none;
+  }
+  input:focus { border-color: #3b82f6; }
+  button {
+    background: #2563eb; color: #fff; border: 0; border-radius: 8px;
+    padding: 0 20px; font-size: 14px; cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+</style>
+</head>
+<body>
+<header>
+  <h1>数据分析助手</h1>
+  <span>LangGraph · MCP · 只读 SQL</span>
+</header>
+
+<div id="list"></div>
+
+<footer>
+  <div class="box">
+    <input id="q" placeholder="例如：2026年各月成交额趋势如何？画个图" autocomplete="off" />
+    <button id="send">提问</button>
+  </div>
+</footer>
+
+<script>
+const list = document.getElementById("list");
+const input = document.getElementById("q");
+const btn = document.getElementById("send");
+let busy = false;
+
+function el(cls, text) {
+  const d = document.createElement("div");
+  d.className = cls;
+  if (text !== undefined) d.textContent = text;
+  return d;
+}
+
+function scroll() { window.scrollTo(0, document.body.scrollHeight); }
+
+// 极简 Markdown：标题、粗体、行内代码、表格、图片
+function render(md) {
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const lines = esc(md).split("\n");
+  const out = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (/^\s*\|.*\|\s*$/.test(line)) {
+      const rows = [];
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) rows.push(lines[i++]);
+      const cells = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      const head = cells(rows[0]);
+      const body = rows.slice(rows[1] && /^[\s|:-]+$/.test(rows[1]) ? 2 : 1).map(cells);
+      out.push("<table><thead><tr>" + head.map((c) => `<th>${c}</th>`).join("") + "</tr></thead><tbody>" +
+        body.map((r) => "<tr>" + r.map((c) => `<td>${c}</td>`).join("") + "</tr>").join("") +
+        "</tbody></table>");
+      continue;
+    }
+
+    const img = line.match(/^!\[([^\]]*)\]\((.+)\)\s*$/);
+    if (img) {
+      const src = img[2].includes("/") ? img[2].split("/").pop() : img[2];
+      out.push(`<img src="/charts/${src}" alt="${img[1]}" />`);
+      i++; continue;
+    }
+
+    const h = line.match(/^(#{1,4})\s+(.*)$/);
+    if (h) { out.push(`<h${h[1].length}>${h[2]}</h${h[1].length}>`); i++; continue; }
+
+    if (!line.trim()) { i++; continue; }
+
+    out.push(`<p>${line.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>")}</p>`);
+    i++;
+  }
+  return out.join("");
+}
+
+async function ask(question) {
+  if (busy) return;
+  busy = true; btn.disabled = true;
+
+  list.appendChild(el("row ask", "你：" + question));
+  const steps = el("row");
+  list.appendChild(steps);
+  scroll();
+
+  try {
+    const resp = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: question }),
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop();
+
+      for (const part of parts) {
+        const evLine = part.split("\n").find((l) => l.startsWith("event:"));
+        const dataLine = part.split("\n").find((l) => l.startsWith("data:"));
+        if (!evLine || !dataLine) continue;
+
+        const event = evLine.slice(6).trim();
+        const data = JSON.parse(dataLine.slice(5).trim());
+
+        if (event === "tool") {
+          const args = JSON.stringify(data.args).slice(0, 160);
+          steps.appendChild(el("step", `▸ ${data.name}  ${args}`));
+        } else if (event === "result") {
+          steps.appendChild(el("step", `  ← ${data.text.split("\n")[0].slice(0, 160)}`));
+        } else if (event === "answer") {
+          const box = el("row answer");
+          box.innerHTML = render(data.text);
+          list.appendChild(box);
+        } else if (event === "error") {
+          list.appendChild(el("row err", "出错了：" + data.message));
+        }
+        scroll();
+      }
+    }
+  } catch (err) {
+    list.appendChild(el("row err", "请求失败：" + err.message));
+  }
+
+  busy = false; btn.disabled = false; input.focus();
+}
+
+btn.onclick = () => {
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = "";
+  ask(q);
+};
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); btn.click(); }
+});
+</script>
+</body>
+</html>
