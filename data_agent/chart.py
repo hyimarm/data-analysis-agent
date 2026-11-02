@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from uuid import uuid4
+from .config import settings
 
 import matplotlib
 
@@ -17,7 +18,7 @@ matplotlib.use("Agg")  # 必须在 import pyplot 之前
 
 import matplotlib.pyplot as plt
 
-from .config import settings
+
 from .db import run_query
 
 # Windows 自带雅黑；Linux 服务器一般装 Noto Sans CJK

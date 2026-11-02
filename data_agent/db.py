@@ -20,7 +20,7 @@ from enum import Enum
 
 from .config import settings
 
-ALLOWED_PREFIX = ("select", "with", "pragma")
+ALLOWED_PREFIX = ("select", "with", "pragma")  # 白名单
 
 
 METRIC_DEFINITIONS = """\
@@ -88,7 +88,7 @@ def _connect() -> sqlite3.Connection:
     db: Path = settings.db_path
     if not db.exists():
         raise QueryError(f"数据库不存在：{db}，先运行 scripts/build_db.py")
-    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)      # mode=ro以只读方式打开SQL
 
     # 某些环境下临时文件创建会失败（实测 TMPDIR 被设成相对路径），
     # 表现为 GROUP BY / 大聚合报 "unable to open database file"，
@@ -138,11 +138,11 @@ def _classify(exc: sqlite3.Error) -> ErrorKind:
 
 def run_query(sql: str) -> QueryResult:
     """执行一条只读查询。失败抛 QueryError，message 给模型看。"""
-    cleaned = _strip_trailing(sql)
+    cleaned = _strip_trailing(sql)              # 去掉结尾的分号和空白
     if not cleaned:
         raise QueryError("SQL 为空", kind=ErrorKind.SQL)
 
-    first_word = cleaned.split(maxsplit=1)[0].lower()
+    first_word = cleaned.split(maxsplit=1)[0].lower()       # 取首词
     if first_word not in ALLOWED_PREFIX:
         raise QueryError(
             f"只允许 SELECT / WITH / PRAGMA 查询，收到的是 {first_word.upper()}。"

@@ -189,6 +189,12 @@ btn.onclick = () => {
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); btn.click(); }
 });
+
+// 支持 ?q=问题 直接触发提问，便于分享具体问题的链接
+const preset = new URLSearchParams(location.search).get("q");
+if (preset) {
+  setTimeout(() => ask(preset), 150);
+}
 </script>
 </body>
 </html>

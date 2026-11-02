@@ -1,13 +1,12 @@
 import sys
 from pathlib import Path
-from data_agent.chart import render
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from data_agent.chart import render
 
 from mcp.server.fastmcp import FastMCP
 
 from data_agent.db import ErrorKind, QueryError, describe_schema, run_query
-
-from data_agent.db import QueryError, describe_schema, run_query
 from data_agent.export import export_markdown
 
 mcp = FastMCP("data-analysis-tools")

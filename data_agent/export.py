@@ -13,11 +13,20 @@ _SAFE = re.compile(r"[^\w\u4e00-\u9fff.-]+")
 _IMG = re.compile(r"!\[([^\]]*)\]\(([^)]+\.(?:png|jpg|jpeg|svg))\)")
 
 def _normalize_images(markdown: str) -> str:
-    """报告在 outputs/，图片在 charts/，把裸文件名统一改写成 ../charts/文件名。"""
-    return _IMG.sub(
-        lambda m: f"![{m.group(1)}](../charts/{Path(m.group(2)).name})",
-        markdown,
-    )
+    """报告在 outputs/，图片在 charts/，把裸文件名统一改写成 ../charts/文件名。
+
+    绝对地址（http、/ 开头、data:）原样保留——它们本来就不指向本地 charts 目录。
+    """
+    absolute = ("http://", "https://", "/", "data:")
+
+    def repl(match: re.Match) -> str:
+        src = match.group(2)
+        if src.startswith(absolute):
+            return match.group(0)
+        return f"![{match.group(1)}](../charts/{Path(src).name})"
+
+    return _IMG.sub(repl, markdown)
+
 
 def export_markdown(title: str, content: str) -> Path:
     settings.output_dir.mkdir(parents=True, exist_ok=True)
